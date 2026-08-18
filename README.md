@@ -271,9 +271,20 @@ these raises this error at the first access.
 
 ---
 
+## Author
+
+**Zhou Long (Tianshu Intelligent / 天枢智能)**
+
+- WeChat: `longling1031`
+- Email: `1033085514@qq.com`
+- Location: Pinghu, Jiaxing, Zhejiang, China
+- Blog: <https://www.zhihu.com/people/tianshu_cn>
+
+---
+
 ## License
 
-[MIT](./LICENSE) © TianShu Contributors
+[MIT](./LICENSE) © Zhou Long (Tianshu Intelligent / 天枢智能)
 
 [dsh]: https://github.com/deepseek-ai/deepseek-harness
 [dsh-rpc]: https://github.com/deepseek-ai/deepseek-harness/tree/main/packages/client/connection
