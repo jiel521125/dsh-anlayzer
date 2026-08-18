@@ -1,0 +1,44 @@
+# TianShu (天枢) Failure Analyzer — Cordis patch overlay
+#
+# Apply with:  dsh web --patch ./cordis.patch.yml
+#
+# This inserts the TianShu plugin into the active profile's loader entries.
+# A patch replaces the targeted row's whole `config`, so every config key
+# below is authoritative for this plugin when the patch is active.
+
+- insert:
+    - id: tianshu-analyzer
+      name: dsh-tianshu-analyzer
+      config:
+        # --- Trigger policy ---
+        autoTrigger: true          # auto-run analysis on failed turn/end
+        autoTriggerReasons:        # which turn/end reasons trigger analysis
+          - error
+          - blocked
+          - interrupted
+          - aborted
+
+        # --- LLM deep diagnosis ---
+        llmDiagnose: true          # enable LLM-augmented root-cause analysis
+        llmMaxTokens: 2048         # output cap for the diagnostic LLM call
+        llmTimeoutMs: 30000        # per-call deadline
+        # provider / model are optional; omit to reuse the session's own route
+        # provider: deepseek
+        # model: deepseek-chat
+
+        # --- Reports ---
+        reportDir: null            # null = ~/.dsh/tianshu-reports; or an absolute path
+        keepReports: 50            # max report files to retain (oldest pruned)
+
+        # --- Rule thresholds ---
+        rules:
+          toolErrorLoop:     { enabled: true, threshold: 3 }
+          toolResultLoop:    { enabled: true, threshold: 3 }
+          maxTokensTruncated: { enabled: true }
+          sandboxDenied:     { enabled: true }
+          approvalBlocked:   { enabled: true }
+          llmError:          { enabled: true }
+          llmAborted:        { enabled: true }
+          promptInjection:   { enabled: true }
+          tokenBurn:         { enabled: true, inputThreshold: 50000, outputThreshold: 100 }
+          noProgress:        { enabled: true, windowSteps: 5 }
