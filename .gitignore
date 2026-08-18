@@ -6,3 +6,4 @@ lib/
 .tianshu-cache/
 .tmp/
 *.tgz
+*.tar.gz
