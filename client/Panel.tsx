@@ -100,6 +100,7 @@ export function TianShuPanel({ sessionId, api, onClose }: TianShuPanelProps): Re
 function ReportView({ report, api, sessionId }: { report: DiagnosisReportLike; api: TianShuPanelApi | undefined; sessionId: string }): ReactNode {
   return (
     <>
+      <QualityScoreBar quality={report.quality} />
       <StatsBar report={report} />
       <Section title={`Findings (${report.findings.length})`}>
         {report.findings.length === 0
@@ -132,8 +133,11 @@ function ReportView({ report, api, sessionId }: { report: DiagnosisReportLike; a
                 <th style={thStyle}>tool</th>
                 <th style={thStyle}>calls</th>
                 <th style={thStyle}>errors</th>
-                <th style={thStyle}>first seq</th>
-                <th style={thStyle}>last seq</th>
+                <th style={thStyle}>err%</th>
+                <th style={thStyle}>avg ms</th>
+                <th style={thStyle}>max ms</th>
+                <th style={thStyle}>first</th>
+                <th style={thStyle}>last</th>
               </tr>
             </thead>
             <tbody>
@@ -142,6 +146,11 @@ function ReportView({ report, api, sessionId }: { report: DiagnosisReportLike; a
                   <td style={tdStyle}><code>{h.name}</code></td>
                   <td style={tdStyle}>{h.calls}</td>
                   <td style={{ ...tdStyle, color: h.errors > 0 ? '#dc2626' : '#666' }}>{h.errors}</td>
+                  <td style={{ ...tdStyle, color: h.errorRate > 0.3 ? '#dc2626' : '#666' }}>
+                    {(h.errorRate * 100).toFixed(0)}%
+                  </td>
+                  <td style={tdStyle}>{h.avgLatencyMs !== null ? formatMs(h.avgLatencyMs) : '—'}</td>
+                  <td style={tdStyle}>{h.maxLatencyMs !== null ? formatMs(h.maxLatencyMs) : '—'}</td>
                   <td style={tdStyle}>{h.firstSeq}</td>
                   <td style={tdStyle}>{h.lastSeq}</td>
                 </tr>
@@ -150,6 +159,8 @@ function ReportView({ report, api, sessionId }: { report: DiagnosisReportLike; a
           </table>
         </Section>
       )}
+
+      <PerformanceView perf={report.performance} />
 
       {report.forkPoints.length > 0 && (
         <Section title="Recommended fork points">
@@ -219,6 +230,74 @@ function Section({ title, children }: { title: string; children: ReactNode }): R
       {children}
     </div>
   )
+}
+
+const GRADE_COLOR: Readonly<Record<string, string>> = {
+  A: '#16a34a', B: '#ca8a04', C: '#ea580c', D: '#dc2626', F: '#7f1d1d',
+}
+
+function QualityScoreBar({ quality }: { quality: DiagnosisReportLike['quality'] }): ReactNode {
+  const color = GRADE_COLOR[quality.grade] ?? '#666'
+  const b = quality.breakdown
+  return (
+    <div style={{ ...qualityStyle, borderColor: color }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <span style={{ fontSize: '22px', fontWeight: 700, color }}>{quality.grade}</span>
+        <div>
+          <div style={{ fontSize: '14px', fontWeight: 600 }}>{quality.score}/100</div>
+          <div style={{ fontSize: '11px', color: '#888' }}>{quality.summary}</div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '11px', color: '#666' }}>
+        <span>success {b.successRate}</span>
+        <span>·</span>
+        <span>tools {b.toolReliability}</span>
+        <span>·</span>
+        <span>tokens {b.tokenEfficiency}</span>
+        <span>·</span>
+        <span>progress {b.progress}</span>
+        <span>·</span>
+        <span>loops {b.loopFree}</span>
+      </div>
+    </div>
+  )
+}
+
+function PerformanceView({ perf }: { perf: DiagnosisReportLike['performance'] }): ReactNode {
+  const fmt = (v: number | null): string => v !== null ? formatMs(v) : '—'
+  const tps = (v: number | null): string => v !== null ? v.toFixed(1) : '—'
+  return (
+    <Section title="⏱ Runtime Performance">
+      <div style={perfGridStyle}>
+        <Metric label="duration" value={perf.durationMs !== null ? formatMs(perf.durationMs) : '—'} />
+        <Metric label="avg tool latency" value={fmt(perf.avgToolLatencyMs)} />
+        <Metric label="max tool latency" value={fmt(perf.maxToolLatencyMs)} />
+        <Metric label="p50 latency" value={fmt(perf.p50ToolLatencyMs)} />
+        <Metric label="p95 latency" value={fmt(perf.p95ToolLatencyMs)} />
+        <Metric label="p99 latency" value={fmt(perf.p99ToolLatencyMs)} />
+        <Metric label="avg turn latency" value={fmt(perf.avgTurnLatencyMs)} />
+        <Metric label="input tok/s" value={tps(perf.inputTokensPerSec)} />
+        <Metric label="output tok/s" value={tps(perf.outputTokensPerSec)} />
+      </div>
+    </Section>
+  )
+}
+
+function Metric({ label, value }: { label: string; value: string }): ReactNode {
+  return (
+    <div style={metricStyle}>
+      <div style={{ fontSize: '11px', color: '#888' }}>{label}</div>
+      <div style={{ fontSize: '14px', fontWeight: 600 }}>{value}</div>
+    </div>
+  )
+}
+
+function formatMs(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
+  const m = Math.floor(ms / 60_000)
+  const s = Math.round((ms % 60_000) / 1000)
+  return `${m}m${s}s`
 }
 
 async function downloadMarkdown(api: TianShuPanelApi, sessionId: string): Promise<void> {
@@ -292,4 +371,16 @@ const preStyle: React.CSSProperties = {
 const downloadBtnStyle: React.CSSProperties = {
   padding: '4px 12px', borderRadius: '6px', border: '1px solid var(--dsh-border, #ccc)',
   background: 'transparent', cursor: 'pointer', fontSize: '13px',
+}
+const qualityStyle: React.CSSProperties = {
+  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+  flexWrap: 'wrap', gap: '6px', padding: '10px 12px', marginBottom: '8px',
+  borderRadius: '8px', border: '2px solid #ccc', background: 'var(--dsh-bg-alt, #f9f9f9)',
+}
+const perfGridStyle: React.CSSProperties = {
+  display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px',
+}
+const metricStyle: React.CSSProperties = {
+  padding: '6px 8px', borderRadius: '6px', background: 'var(--dsh-bg-alt, #f7f7f7)',
+  textAlign: 'center',
 }

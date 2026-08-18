@@ -1,7 +1,7 @@
 {
   "name": "dsh-tianshu-analyzer",
   "description": "TianShu (天枢) — Failure root-cause analyzer for DeepSeek Harness. Detects why an agent session failed, suggests fork points, and produces shareable diagnostic reports.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publishConfig": {
     "access": "public"
   },

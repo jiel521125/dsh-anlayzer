@@ -23,6 +23,7 @@ import { resolveConfig, DEFAULT_CONFIG } from './config.ts'
 import { loadSession } from './analyzer/session-loader.ts'
 import type { AnalyzedSession } from './analyzer/session-loader.ts'
 import { runRuleEngine, buildHeatmap, recommendForkPoints } from './analyzer/rule-engine.ts'
+import { computePerformanceMetrics, enhanceHeatmap, computeQualityScore } from './analyzer/metrics.ts'
 import { safeDiagnoseWithLlm } from './analyzer/llm-diagnoser.ts'
 import { renderMarkdown } from './report/markdown.ts'
 import { ReportStore, resolveReportDir } from './report/store.ts'
@@ -85,6 +86,7 @@ export function apply(ctx: Context, config: unknown = DEFAULT_CONFIG): void {
       const lines: string[] = [
         `## TianShu Diagnosis: ${report.sessionId}`,
         ``,
+        `**Quality Score:** ${report.quality.score}/100 (Grade ${report.quality.grade})`,
         `**Findings:** ${report.findings.length}`,
       ]
       const critical = report.findings.filter(f => f.severity === 'critical')
@@ -127,7 +129,10 @@ async function analyzeSession(
 
   // 1. Rule engine
   const findings = runRuleEngine(session, cfg)
-  const heatmap = buildHeatmap(session)
+  const baseHeatmap = buildHeatmap(session)
+  const heatmap = enhanceHeatmap(session, baseHeatmap)
+  const performance = computePerformanceMetrics(session)
+  const quality = computeQualityScore(session, findings)
   const forkPoints = recommendForkPoints(session, findings)
 
   // 2. LLM deep diagnosis (optional)
@@ -147,6 +152,8 @@ async function analyzeSession(
     stats: session.stats,
     findings,
     heatmap,
+    performance,
+    quality,
     forkPoints,
     llmDiagnosis,
     llmDiagnosisError,

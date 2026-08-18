@@ -421,9 +421,11 @@ export function runRuleEngine(session: AnalyzedSession, config: TianShuConfig): 
   })
 }
 
-/** Build the per-tool call/error heat map. */
-export function buildHeatmap(session: AnalyzedSession): readonly ToolHeatmapEntry[] {
-  const map = new Map<string, ToolHeatmapEntry & { calls: number; errors: number; firstSeq: number; lastSeq: number }>()
+/** Build the base per-tool call/error heat map (latency/errorRate added by metrics.ts). */
+export function buildHeatmap(
+  session: AnalyzedSession,
+): readonly Omit<ToolHeatmapEntry, 'errorRate' | 'avgLatencyMs' | 'maxLatencyMs'>[] {
+  const map = new Map<string, { name: string; calls: number; errors: number; firstSeq: number; lastSeq: number }>()
   for (const { seq, data } of session.toolCalls) {
     if (data.name === undefined) continue
     const existing = map.get(data.name)

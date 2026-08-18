@@ -6,7 +6,7 @@
  * @module dsh-tianshu-analyzer/report/markdown
  */
 
-import type { DiagnosisReport, Finding, Severity } from '../types.ts'
+import type { DiagnosisReport, Finding, Severity, PerformanceMetrics, SessionQualityScore } from '../types.ts'
 
 const SEVERITY_EMOJI: Readonly<Record<Severity, string>> = {
   critical: '🔴',
@@ -32,6 +32,14 @@ export function renderMarkdown(report: DiagnosisReport): string {
   if (report.stats.durationMs !== null) lines.push(`| duration | ${formatDuration(report.stats.durationMs)} |`)
   lines.push('')
 
+  // --- Quality score ---
+  lines.push(renderQualityScore(report.quality))
+  lines.push('')
+
+  // --- Performance ---
+  lines.push(renderPerformance(report.performance))
+  lines.push('')
+
   // --- Findings ---
   lines.push(`## Findings (${report.findings.length})`)
   lines.push('')
@@ -48,10 +56,15 @@ export function renderMarkdown(report: DiagnosisReport): string {
   if (report.heatmap.length > 0) {
     lines.push(`## Tool call heat map`)
     lines.push('')
-    lines.push(`| tool | calls | errors | first seq | last seq |`)
-    lines.push(`|---|---:|---:|---:|---:|`)
+    lines.push(`| tool | calls | errors | error rate | avg latency | max latency | first seq | last seq |`)
+    lines.push(`|---|---:|---:|---:|---:|---:|---:|---:|`)
     for (const h of report.heatmap) {
-      lines.push(`| \`${h.name}\` | ${h.calls} | ${h.errors} | ${h.firstSeq} | ${h.lastSeq} |`)
+      lines.push(
+        `| \`${h.name}\` | ${h.calls} | ${h.errors} | ${(h.errorRate * 100).toFixed(0)}% `
+        + `| ${h.avgLatencyMs !== null ? formatDuration(h.avgLatencyMs) : '—'} `
+        + `| ${h.maxLatencyMs !== null ? formatDuration(h.maxLatencyMs) : '—'} `
+        + `| ${h.firstSeq} | ${h.lastSeq} |`,
+      )
     }
     lines.push('')
   }
@@ -110,4 +123,47 @@ function formatDuration(ms: number): string {
   const m = Math.floor(ms / 60_000)
   const s = Math.round((ms % 60_000) / 1000)
   return `${m}m${s}s`
+}
+
+const GRADE_EMOJI: Readonly<Record<string, string>> = {
+  A: '🟢', B: '🟡', C: '🟠', D: '🔴', F: '⚫',
+}
+
+/** Render the session quality score section. */
+function renderQualityScore(q: SessionQualityScore): string {
+  const b = q.breakdown
+  return [
+    `## ${GRADE_EMOJI[q.grade] ?? ''} Quality Score: ${q.score}/100 (Grade ${q.grade})`,
+    '',
+    `> ${q.summary}`,
+    '',
+    `| dimension | score | weight |`,
+    `|---|---:|---:|`,
+    `| turn success rate | ${b.successRate}/100 | 35% |`,
+    `| tool reliability | ${b.toolReliability}/100 | 25% |`,
+    `| token efficiency | ${b.tokenEfficiency}/100 | 15% |`,
+    `| progress | ${b.progress}/100 | 15% |`,
+    `| loop freedom | ${b.loopFree}/100 | 10% |`,
+  ].join('\n')
+}
+
+/** Render the runtime performance metrics section. */
+function renderPerformance(p: PerformanceMetrics): string {
+  const fmt = (v: number | null): string => v !== null ? formatDuration(v) : '—'
+  const tps = (v: number | null): string => v !== null ? v.toFixed(1) : '—'
+  return [
+    `## ⏱ Runtime Performance`,
+    '',
+    `| metric | value |`,
+    `|---|---|`,
+    `| session duration | ${p.durationMs !== null ? formatDuration(p.durationMs) : '—'} |`,
+    `| avg tool latency | ${fmt(p.avgToolLatencyMs)} |`,
+    `| max tool latency | ${fmt(p.maxToolLatencyMs)} |`,
+    `| p50 tool latency | ${fmt(p.p50ToolLatencyMs)} |`,
+    `| p95 tool latency | ${fmt(p.p95ToolLatencyMs)} |`,
+    `| p99 tool latency | ${fmt(p.p99ToolLatencyMs)} |`,
+    `| avg turn latency | ${fmt(p.avgTurnLatencyMs)} |`,
+    `| input throughput | ${tps(p.inputTokensPerSec)} tok/s |`,
+    `| output throughput | ${tps(p.outputTokensPerSec)} tok/s |`,
+  ].join('\n')
 }

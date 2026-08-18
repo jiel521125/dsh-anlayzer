@@ -109,7 +109,39 @@ export interface DiagnosisReportLike {
     readonly evidenceSeqs: readonly number[]
     readonly suggestion: string
   }[]
-  readonly heatmap: readonly { name: string; calls: number; errors: number; firstSeq: number; lastSeq: number }[]
+  readonly heatmap: readonly {
+    name: string
+    calls: number
+    errors: number
+    errorRate: number
+    avgLatencyMs: number | null
+    maxLatencyMs: number | null
+    firstSeq: number
+    lastSeq: number
+  }[]
+  readonly performance: {
+    avgToolLatencyMs: number | null
+    maxToolLatencyMs: number | null
+    p50ToolLatencyMs: number | null
+    p95ToolLatencyMs: number | null
+    p99ToolLatencyMs: number | null
+    avgTurnLatencyMs: number | null
+    outputTokensPerSec: number | null
+    inputTokensPerSec: number | null
+    durationMs: number | null
+  }
+  readonly quality: {
+    score: number
+    grade: 'A' | 'B' | 'C' | 'D' | 'F'
+    breakdown: {
+      successRate: number
+      toolReliability: number
+      tokenEfficiency: number
+      progress: number
+      loopFree: number
+    }
+    summary: string
+  }
   readonly forkPoints: readonly { seq: number; rationale: string; tryInstead: string }[]
   readonly llmDiagnosis: string | null
   readonly llmDiagnosisError: string | null

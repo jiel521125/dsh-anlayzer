@@ -119,14 +119,66 @@ export interface Finding {
   readonly suggestion: string
 }
 
-/** A tool-call heat-map entry: how often a tool was called and how often it erred. */
+/** A tool-call heat-map entry: how often a tool was called, errored, and how slow it was. */
 export interface ToolHeatmapEntry {
   readonly name: string
   readonly calls: number
   readonly errors: number
+  /** errors / calls, 0..1 */
+  readonly errorRate: number
+  /** Average call-to-result latency in ms (null when timestamps unavailable). */
+  readonly avgLatencyMs: number | null
+  /** Max call-to-result latency in ms. */
+  readonly maxLatencyMs: number | null
   /** Seqs of the first and last call to this tool. */
   readonly firstSeq: number
   readonly lastSeq: number
+}
+
+/** Runtime performance metrics derived from event timestamps and token usage. */
+export interface PerformanceMetrics {
+  /** Average latency between a tool/call and its tool/result, in ms. */
+  readonly avgToolLatencyMs: number | null
+  /** Maximum tool call latency, in ms. */
+  readonly maxToolLatencyMs: number | null
+  /** p50 / p95 / p99 tool call latency, in ms. */
+  readonly p50ToolLatencyMs: number | null
+  readonly p95ToolLatencyMs: number | null
+  readonly p99ToolLatencyMs: number | null
+  /** Average time between consecutive turn/end events, in ms. */
+  readonly avgTurnLatencyMs: number | null
+  /** Output tokens per second over the whole session. */
+  readonly outputTokensPerSec: number | null
+  /** Input tokens per second over the whole session. */
+  readonly inputTokensPerSec: number | null
+  /** Total session wall-clock duration in ms (first → last event). */
+  readonly durationMs: number | null
+}
+
+/** Per-dimension quality score breakdown (each 0..100). */
+export interface QualityScoreBreakdown {
+  /** Turn success rate: non-error turns / total turns. */
+  readonly successRate: number
+  /** Tool reliability: 1 − (tool errors / tool calls). */
+  readonly toolReliability: number
+  /** Token efficiency: min(output/input, 1) scaled to 100. */
+  readonly tokenEfficiency: number
+  /** Progress: penalised by no-progress findings. */
+  readonly progress: number
+  /** Loop-free: penalised by tool-error-loop / tool-result-loop findings. */
+  readonly loopFree: number
+}
+
+/** Session quality score: 0..100 overall + letter grade + breakdown. */
+export interface SessionQualityScore {
+  /** 0..100 overall score (weighted average of breakdown dimensions). */
+  readonly score: number
+  /** Letter grade derived from score. */
+  readonly grade: 'A' | 'B' | 'C' | 'D' | 'F'
+  /** Per-dimension breakdown. */
+  readonly breakdown: QualityScoreBreakdown
+  /** One-line human-readable summary. */
+  readonly summary: string
 }
 
 /** A recommended fork point: a seq the user can rewind to for a clean retry. */
@@ -172,6 +224,10 @@ export interface DiagnosisReport {
   readonly findings: readonly Finding[]
   /** Per-tool call/error heat map. */
   readonly heatmap: readonly ToolHeatmapEntry[]
+  /** Runtime performance metrics (latency, throughput). */
+  readonly performance: PerformanceMetrics
+  /** Session quality score (0..100 + grade). */
+  readonly quality: SessionQualityScore
   /** Recommended fork points, best first. */
   readonly forkPoints: readonly ForkPoint[]
   /** Natural-language deep-dive from the LLM, when enabled. */
